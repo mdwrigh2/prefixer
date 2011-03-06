@@ -55,11 +55,14 @@ class Stack():
 class Node():
     def __init__(self,op, lc, rc):
         self.op = op
-        self.lc = lc
-        self.rc = rc
+        self.children= [lc, rc]
 
     def __str__(self):
-        return "(%s %s %s)" % (self.op, self.lc, self.rc)
+        s=""
+        for child in self.children:
+            s += str(child)+" "
+        s = s[0:-1]
+        return "(%s %s)" % (self.op, s)
 
 precedence = {
     'begin': 0,
