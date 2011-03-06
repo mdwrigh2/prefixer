@@ -1,0 +1,152 @@
+#!/usr/bin/env python
+# This is an overly designed implementation of the Shunting Yard algorithm
+
+import sys
+import re
+
+# I was planning on using a generator here
+# but there's no peek method with a generator.
+# It didn't end up mattering with the shunting yard,
+# however.
+class Lex():
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.i = 0
+
+    def next(self):
+        if self.i >= len(self.tokens):
+            raise LexEnd
+        tk = self.tokens[self.i]
+        self.i += 1
+        return tk
+
+    def peek(self):
+        if self.i >= len(self.tokens):
+            return None
+        return self.tokens[i]
+
+# Just so I have a unique exception to catch
+# and I'm not throwing away any useful debugging
+# exceptions.
+class LexEnd(Exception):
+    pass
+
+# I suppose I could've used this instead of the
+# Lex class, but oh well. Keeping semantic differences
+# (next vs. pop), kept me a bit more sane. Probably would change
+# on a refactor however.
+class Stack():
+    def __init__(self, default=None):
+        self.lst = []
+        if default:
+            self.lst.append(default)
+
+    def pop(self):
+        return self.lst.pop()
+
+    def push(self,x):
+        self.lst.append(x)
+
+    def peek(self):
+        return self.lst[-1]
+
+
+# Basic node class to hold all of the expressions
+class Node():
+    def __init__(self,op, lc, rc):
+        self.op = op
+        self.lc = lc
+        self.rc = rc
+
+    def __str__(self):
+        return "(%s %s %s)" % (self.op, self.lc, self.rc)
+
+precedence = {
+    'begin': 0,
+    '(':0,
+    '+': 10,
+    '-': 10,
+    '*': 20,
+    '/': 20
+}
+
+operator_stack = Stack('begin')
+operand_stack = Stack()
+
+def read(file_name):
+    try:
+        f = open(file_name, "r")
+        lines = f.readlines()
+        f.close()
+    except IOError, e:
+        print "Error reading file: %s" % e.filename
+        sys.exit(1)
+    return lines
+
+def parse(tokens):
+    try:
+        tk = tokens.next()
+        while True:
+            # digit literals
+            # just push on the operand stack
+            if re.search('\d', tk):
+                operand_stack.push(tk)
+            # variable literals
+            # just push on the operand stack
+            elif re.search('[A-Za-z]+',tk):
+                operand_stack.push(tk)
+            # push this on the operator stack
+            # we'll use it as a marker for ')'
+            elif tk == '(':
+                operator_stack.push(tk)
+            # now traverse the stack backwards
+            # until you find ')'
+            # this can essentially be considered the
+            # end marker of a sub expression (i.e.
+            # it's exactly what we'll do at the end of
+            # this whole expression)
+            elif tk == ')':
+                tk = operator_stack.pop()
+                while tk != '(':
+                    op = operand_stack.pop()
+                    op2 = operand_stack.pop()
+                    operand_stack.push(Node(tk, op2, op))
+                    tk = operator_stack.pop()
+            # we have a binary operator
+            else:
+                pk = operator_stack.peek()
+                # while it has a lower precedence
+                # pop the previous operators and their operands off
+                # and make nodes of them
+                while precedence[pk]> precedence[tk]:
+                    op = operand_stack.pop()
+                    op2 = operand_stack.pop()
+                    operand_stack.push(Node(operator_stack.pop(), op2, op))
+                    pk = operator_stack.peek()
+                # and then push it on the stack
+                operator_stack.push(tk)
+            tk = tokens.next()
+    except LexEnd:
+        pk = operator_stack.peek()
+        # now we have reached the end of our input
+        # so we need to traverse the stack backwards
+        # matching each operator with its two operands
+        while pk != 'begin':
+            operat = operator_stack.pop()
+            op = operand_stack.pop()
+            op2 = operand_stack.pop()
+            operand_stack.push(Node(operat, op2,  op))
+            pk = operator_stack.peek()
+        # all that remains is a single node that contains
+        # the top most operand (or literal if there are no
+        # operands)
+        return operand_stack.pop()
+
+files = sys.argv[1:]
+for f in files:
+    lines = read(f)
+    for line in lines:
+        lex = Lex(line.split())
+        print parse(lex)
+
+

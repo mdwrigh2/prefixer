@@ -1,0 +1,4 @@
+A quick python script that converts infix notation arithmetic to prefix notation arithmetic.
+
+Usage:
+prefixer [FILENAME(s)]
